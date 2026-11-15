@@ -1,5 +1,9 @@
 # aws-devops-export
 
+[![Tests](https://github.com/brett6320/aws-devops-export/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/brett6320/aws-devops-export/actions/workflows/tests.yml)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
+![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)
+
 Exports tasks from an AWS DevOps Agent **Agent Space** (investigations, evaluations, release-readiness reviews, release testing) to static, self-contained HTML reports. For each task it pulls the task metadata, every agent execution, the full journal (`ListJournalRecords`) and any recommendations, then renders one page per task plus an `index.html`. The AWS console has no export feature, so use this for incident write-ups, audits or offline archives.
 
 > **Status:** tested offline against the botocore service model only, not yet run against a live Agent Space.

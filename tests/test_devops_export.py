@@ -127,8 +127,8 @@ def test_end_to_end_export(client, tmp_path, monkeypatch):
     assert rc == 0
 
     out = tmp_path / SPACE
-    index = (out / "index.html").read_text()
-    page = (out / "tasks" / "task-1.html").read_text()
+    index = (out / "index.html").read_text(encoding="utf-8")
+    page = (out / "tasks" / "task-1.html").read_text(encoding="utf-8")
     assert (out / "raw" / "task-1.json").exists()
 
     assert 'href="tasks/task-1.html"' in index
@@ -214,11 +214,11 @@ def test_javascript_reference_url_not_linked(client, tmp_path, monkeypatch):
     monkeypatch.setattr(dx, "get_client", lambda session: client)
     assert dx.main(["export", "--space-id", SPACE, "--out", str(tmp_path), "--task-id", "task-1",
                     "--task-id", "task-1"]) == 0
-    page = (tmp_path / SPACE / "tasks" / "task-1.html").read_text()
+    page = (tmp_path / SPACE / "tasks" / "task-1.html").read_text(encoding="utf-8")
     assert 'href="javascript:' not in page
     assert "Content-Security-Policy" in page
     # Duplicate --task-id collapses to one row.
-    assert (tmp_path / SPACE / "index.html").read_text().count('href="tasks/task-1.html"') == 1
+    assert (tmp_path / SPACE / "index.html").read_text(encoding="utf-8").count('href="tasks/task-1.html"') == 1
 
 
 def test_failed_task_does_not_abort_run(client, tmp_path, monkeypatch):
@@ -233,7 +233,7 @@ def test_failed_task_does_not_abort_run(client, tmp_path, monkeypatch):
     out = tmp_path / SPACE
     assert (out / "tasks" / "task-1.html").exists()
     assert not (out / "tasks" / "bad.html").exists()
-    index = (out / "index.html").read_text()
+    index = (out / "index.html").read_text(encoding="utf-8")
     assert "AccessDeniedException" in index
 
 
@@ -265,5 +265,5 @@ def test_render_failure_does_not_abort_run(client, tmp_path, monkeypatch):
     monkeypatch.setattr(dx, "get_client", lambda session: client)
     monkeypatch.setattr(dx, "build_view", lambda executions: 1 / 0)
     assert dx.main(["export", "--space-id", SPACE, "--out", str(tmp_path)]) == 3
-    index = (tmp_path / SPACE / "index.html").read_text()
+    index = (tmp_path / SPACE / "index.html").read_text(encoding="utf-8")
     assert "render error: ZeroDivisionError" in index
