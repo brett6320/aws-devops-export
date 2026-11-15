@@ -1,0 +1,51 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ space.name }} — DevOps Agent export{% endblock %}
+{% block content %}
+<h1>{{ space.name }}</h1>
+<div class="muted">AWS DevOps Agent · Agent Space export</div>
+<dl class="meta">
+  <dt>Space ID</dt><dd>{{ space.agentSpaceId }}</dd>
+  {% if space.description %}<dt>Description</dt><dd>{{ space.description }}</dd>{% endif %}
+  <dt>Created</dt><dd>{{ space.createdAt | ts }}</dd>
+  <dt>Tasks exported</dt><dd>{{ exports | length }}{% if failed %} ({{ failed | length }} failed){% endif %}</dd>
+</dl>
+
+<h2>Tasks</h2>
+{% if exports %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Created</th><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Records</th>{% if raw_json %}<th>Raw</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for e in exports %}
+    {% set t = e.task %}
+    <tr>
+      <td>{{ t.createdAt | ts }}</td>
+      <td><a href="tasks/{{ safe_name(t.taskId) }}.html">{{ t.title }}</a></td>
+      <td>{{ t.taskType }}</td>
+      <td><span class="badge p-{{ t.priority | lower_dash }}">{{ t.priority }}</span></td>
+      <td><span class="badge s-{{ t.status | lower_dash }}">{{ t.status }}</span></td>
+      <td>{{ e.record_count }}</td>
+      {% if raw_json %}<td><a href="raw/{{ safe_name(t.taskId) }}.json">json</a></td>{% endif %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% elif not failed %}
+<p class="muted">No tasks matched the filters.</p>
+{% endif %}
+
+{% if failed %}
+<h2>Failed to export ({{ failed | length }})</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Task ID</th><th>Title</th><th>Error</th></tr></thead>
+  <tbody>
+  {% for f in failed %}
+    <tr><td>{{ f.task.taskId }}</td><td>{{ f.task.title }}</td><td class="s-failed">{{ f.error }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}
