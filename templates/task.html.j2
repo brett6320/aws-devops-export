@@ -1,0 +1,135 @@
+{% extends "base.html.j2" %}
+{% set t = export.task %}
+{% block title %}{{ t.title }} — DevOps Agent{% endblock %}
+{% block content %}
+<div class="muted"><a href="../index.html">← {{ space.name }}</a></div>
+<h1>{{ t.title }}</h1>
+<div>
+  <span class="badge s-{{ t.status | lower_dash }}">{{ t.status }}</span>
+  <span class="badge p-{{ t.priority | lower_dash }}">{{ t.priority }}</span>
+  <span class="badge">{{ t.taskType }}</span>
+</div>
+
+<dl class="meta">
+  <dt>Task ID</dt><dd>{{ t.taskId }}</dd>
+  <dt>Created</dt><dd>{{ t.createdAt | ts }}</dd>
+  <dt>Updated</dt><dd>{{ t.updatedAt | ts }}</dd>
+  {% if t.statusReason %}<dt>Status reason</dt><dd>{{ t.statusReason }}</dd>{% endif %}
+  {% if t.primaryTaskId %}<dt>Primary task</dt><dd>{{ t.primaryTaskId }}</dd>{% endif %}
+  {% if t.reference %}
+  <dt>Reference</dt>
+  {% set ref_url = t.reference.referenceUrl | safe_url %}
+  <dd>{{ t.reference.system }}:
+    {% if ref_url %}<a href="{{ ref_url }}" rel="noopener noreferrer">{{ t.reference.title or t.reference.referenceId }}</a>
+    {% else %}{{ t.reference.title or t.reference.referenceId }} <span class="muted">({{ t.reference.referenceUrl }})</span>{% endif %}
+  </dd>
+  {% endif %}
+</dl>
+
+{% if t.description %}
+<h2>Description</h2>
+<div class="md">{{ t.description | markdown }}</div>
+{% endif %}
+
+{% if view.summaries %}
+{% for title, body in view.summaries %}
+<h2>{{ title }}</h2>
+<div class="md">{{ body }}</div>
+{% endfor %}
+{% elif view.ui_summary %}
+<h2>Summary</h2>
+<div class="md ui">{{ view.ui_summary }}</div>
+{% endif %}
+
+{% for label, items in view.facts.items() %}
+<h2>{{ label }} ({{ items | length }})</h2>
+{% for f in items %}
+<div class="card">
+  <header><h3>{{ f.title }}</h3></header>
+  <div class="md">{{ f.html }}</div>
+  {% if f.extra %}<details><summary>Details</summary>{{ f.extra }}</details>{% endif %}
+</div>
+{% endfor %}
+{% endfor %}
+
+{% if export.recommendations %}
+<h2>Recommendations ({{ export.recommendations | length }})</h2>
+{% for r in export.recommendations %}
+<div class="card">
+  <header>
+    <h3>{{ r.title }}</h3>
+    <span class="badge p-{{ r.priority | lower_dash }}">{{ r.priority }}</span>
+    <span class="badge s-{{ r.status | lower_dash }}">{{ r.status }}</span>
+  </header>
+  <div class="md">{{ r.content.summary | markdown }}</div>
+  {% if r.content.spec %}
+  <details><summary>Spec</summary><div class="md">{{ r.content.spec | markdown }}</div></details>
+  {% endif %}
+  {% if r.additionalContext %}
+  <details><summary>Additional context</summary><div class="md">{{ r.additionalContext | markdown }}</div></details>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if view.summaries and view.ui_summary %}
+<h2>Live summary</h2>
+<details><summary>Final state of the investigation summary panel</summary><div class="md ui">{{ view.ui_summary }}</div></details>
+{% endif %}
+
+<h2>Agent timeline</h2>
+<p class="muted">{{ export.record_count }} journal records across {{ export.executions | length }} execution(s).
+Reasoning and tool output are collapsed; click to expand.</p>
+{% if not export.executions %}
+<p class="muted">No executions recorded for this task.</p>
+{% endif %}
+{% set execution_ids = export.executions | map(attribute="execution_id") | list %}
+{% for ex in export.executions %}
+<section class="exec{% if ex.parent_execution_id %} child{% endif %}" id="exec-{{ ex.execution_id }}">
+  <header>
+    <h3>{{ ex.agent_sub_task }}{% if ex.agent_type %} <span class="muted">· {{ ex.agent_type }}</span>{% endif %}</h3>
+    <div class="muted">
+      <span class="badge s-{{ ex.status | lower_dash }}">{{ ex.status }}</span>
+      {{ ex.created_at | ts }} → {{ ex.updated_at | ts }}
+      {% if ex.parent_execution_id %} · parent {% if ex.parent_execution_id in execution_ids %}<a href="#exec-{{ ex.parent_execution_id }}">{{ ex.parent_execution_id }}</a>{% else %}{{ ex.parent_execution_id }}{% endif %}{% endif %}
+    </div>
+  </header>
+  {% for ev in view.timelines.get(ex.execution_id, []) %}
+  {% if ev.kind == "prompt" %}
+  <div class="ev prompt"><div class="who">Prompt · {{ ev.created_at | ts }}</div><div class="md">{{ ev.data.html }}</div></div>
+  {% elif ev.kind == "assistant" %}
+  <div class="ev assistant"><div class="who">Agent · {{ ev.created_at | ts }}</div><div class="md">{{ ev.data.html }}</div></div>
+  {% elif ev.kind == "thinking" %}
+  <details class="ev thinking"><summary>Reasoning · {{ ev.created_at | ts }}</summary><div class="md">{{ ev.data.html }}</div></details>
+  {% elif ev.kind == "tool" %}
+  <details class="ev tool">
+    <summary><code>{{ ev.data.label }}</code>{% if ev.data.status %} <span class="badge s-{{ 'completed' if ev.data.status == 'success' else 'failed' }}">{{ ev.data.status }}</span>{% endif %}</summary>
+    {% if ev.data.input %}<div class="sub">Input</div>{{ ev.data.input }}{% endif %}
+    {% if ev.data.result %}<div class="sub">Result{% if ev.data.truncated %} (truncated; use --raw-json for full output){% endif %}</div><pre>{{ ev.data.result }}</pre>{% endif %}
+  </details>
+  {% else %}
+  <div class="ev other"><div class="who">{{ ev.data.type }} · {{ ev.created_at | ts }}</div><div class="md">{{ ev.data.html }}</div></div>
+  {% endif %}
+  {% else %}
+  <p class="muted">No journal records.</p>
+  {% endfor %}
+  {% if embed_raw %}
+  <details><summary>Raw journal records ({{ ex.records | length }})</summary><pre>{{ ex.records | tojson_pretty }}</pre></details>
+  {% endif %}
+</section>
+{% endfor %}
+
+{% if view.usage %}
+<h2>Agent resource usage</h2>
+<dl class="meta">
+  {% if view.usage.context is not none %}<dt>Context window used</dt><dd>{{ view.usage.context }}%</dd>{% endif %}
+  {% if view.usage.compactions is not none %}<dt>Compactions</dt><dd>{{ view.usage.compactions }}</dd>{% endif %}
+</dl>
+{% if view.usage.tools %}
+<div class="table-wrap"><table>
+  <thead><tr><th>Tool</th><th>Calls</th></tr></thead>
+  <tbody>{% for tl in view.usage.tools %}<tr><td><code>{{ tl.name }}</code></td><td>{{ tl.tool_use_count }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endif %}
+{% endblock %}
